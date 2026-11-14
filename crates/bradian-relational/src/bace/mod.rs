@@ -18,7 +18,13 @@
 //! design decisions.
 
 pub mod codec;
+pub mod envelope;
 
 pub use codec::{
     CapabilityFlags, Codec, CodecCapability, CodecId, DecodeError, Determinism, EncodeError,
+};
+pub use envelope::{
+    read_envelope, write_envelope, Envelope, EnvelopeCaps, EnvelopeError, EnvelopeFlags,
+    EnvelopeHeader, ENVELOPE_HEADER_SIZE, ENVELOPE_MAGIC, ENVELOPE_MIN_SIZE, ENVELOPE_TRAILER_SIZE,
+    ENVELOPE_VERSION,
 };
