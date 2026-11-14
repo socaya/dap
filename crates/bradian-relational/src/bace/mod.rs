@@ -19,6 +19,7 @@
 
 pub mod codec;
 pub mod envelope;
+pub mod policy;
 pub mod registry;
 
 pub use codec::{
@@ -28,5 +29,9 @@ pub use envelope::{
     read_envelope, write_envelope, Envelope, EnvelopeCaps, EnvelopeError, EnvelopeFlags,
     EnvelopeHeader, ENVELOPE_HEADER_SIZE, ENVELOPE_MAGIC, ENVELOPE_MIN_SIZE, ENVELOPE_TRAILER_SIZE,
     ENVELOPE_VERSION,
+};
+pub use policy::{
+    CompressionProfile, DictionaryScope, InMemoryPolicyService, PlatformBaseline, PolicyKey,
+    PolicyService, PolicyValue, Resolved, ScopeChain, ScopeLevel, ScopeOverrides, VetoReason,
 };
 pub use registry::{BuiltInRegistry, CodecRegistry, Negotiation};
