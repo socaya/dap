@@ -102,5 +102,33 @@ schedule that violates the shared rule.
   anomaly level, not by label. Mapping to external labels requires
   external reference-suite runs (G1-REFERENCE, still open).
 
+## 8. Cross-engine confirmations
+
+The anomaly matrix in §2 cites tests from `read_validation.rs` and
+`read_validation_sql.rs`, which exercise the explicit opt-in
+read-validation surface. The same invariants are independently
+confirmed by other suites that cover the native durable MVCC kernel
+(`durable_mvcc.rs`, `history_admission.rs`), the savepoint API
+(`savepoints.rs`, `savepoint_crash.rs`) and the historical SQL
+engine (`history_sql.rs`). Operators reading this reference can
+treat the citations below as additional evidence for the same
+behaviours.
+
+| Property | Owning test(s) |
+|---|---|
+| **Snapshot-scoped disjoint writes commit without conflict** — scalability of snapshot mode | `durable_mvcc::disjoint_writers_commit_from_same_snapshot` |
+| **Same-key lost-update prevention** in the durable kernel (not only in read-validation) | `durable_mvcc::conflicting_same_key_writes_are_rejected_without_partial_commit` |
+| **Phantom prevention via conservative whole-store LSN check** after a full scan | `durable_mvcc::full_scan_then_write_conflicts_with_intervening_commit` |
+| **Pinned-reader retention** — a long-lived snapshot pins the version it sees, blocking retention-floor advancement | `durable_mvcc::pinned_reader_prevents_advancing_floor_past_its_start` |
+| **Read-only transactions do not append WAL** — a snapshot read that writes nothing does not produce durable bytes | `durable_mvcc::read_only_transactions_do_not_append_wal_or_change_snapshot` |
+| **Savepoint rollback preserves scan conflict observations** — in the durable kernel | `savepoints::rollback_to_never_forgets_full_scan_conflict_observation` |
+| **Savepoint rollback preserves original snapshot conflicts and retention pin** | `savepoints::restored_writes_keep_original_snapshot_conflicts_and_retention_pin` |
+| **Savepoint + admission interaction** — coalesced writes across savepoints charge only the final committed key set | `history_admission::savepoints_and_coalesced_writes_charge_only_the_final_committed_key_set` |
+| **ACID D under process exit** — a process that exits mid-transaction keeps only the outer committed work | `savepoint_crash::process_exit_keeps_only_outer_committed_work` |
+| **Historical SQL rollback never publishes staged changes** | `history_sql::deletion_history_and_rollback_behave_correctly` |
+| **AS OF before any committed data returns no rows** — historical reads do not fabricate pre-existence | `history_sql::as_of_before_first_import_visibility_returns_no_rows` |
+
+Each cited test is a passing integration test in the current workspace.
+
 See the [comprehensive implementation plan](../implementation/BRADIAN_COMPREHENSIVE_IMPLEMENTATION_PLAN.md)
 §4.4 for the full isolation workstream.
