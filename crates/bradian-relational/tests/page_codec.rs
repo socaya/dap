@@ -48,9 +48,12 @@ fn rejects_unknown_format_versions_types_and_flags() {
     bad_magic[0] = 0;
     assert_eq!(Page::decode(&bad_magic), Err(PageError::InvalidMagic));
 
+    // ADR 0064 adds version 2 as a valid on-disk format (BRPG v2). The
+    // next unknown version is 3; that's what this fail-closed case now
+    // asserts against.
     let mut future_version = valid;
-    future_version[4..6].copy_from_slice(&2_u16.to_le_bytes());
-    assert_eq!(Page::decode(&future_version), Err(PageError::UnsupportedVersion(2)));
+    future_version[4..6].copy_from_slice(&3_u16.to_le_bytes());
+    assert_eq!(Page::decode(&future_version), Err(PageError::UnsupportedVersion(3)));
 
     let mut unknown_type = valid;
     unknown_type[6] = 255;

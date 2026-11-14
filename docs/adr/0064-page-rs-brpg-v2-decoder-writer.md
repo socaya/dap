@@ -1,15 +1,15 @@
-# ADR 0064 — `page.rs` BRPG v2 decoder/writer (implementation; **PROPOSED**)
+# ADR 0064 — `page.rs` BRPG v2 decoder/writer
 
-**Status: PROPOSED — not accepted for implementation.**
+**Status: ACCEPTED — 14 November 2026.**
 
-Blocked on **ADR 0063** (BRPG v2 feature-flag page) which is already
-accepted. This ADR is the **first implementation ADR** in the BACE
-workstream: it turns the ADR 0063 byte layout into an actual Rust
-decoder/writer in `crates/bradian-relational/src/page.rs`.
+Owner review completed with the §6 proposed defaults recorded as
+resolved decisions (see §6 below). This ADR is the **first
+implementation ADR** in the BACE workstream: it turns the ADR 0063
+byte layout into an actual Rust decoder/writer in
+`crates/bradian-relational/src/page.rs`.
 
-Owner review required before any code lands, per CLAUDE.md §4.9. This
-ADR freezes the **Rust API surface** that every carrier (row_store,
-backup, `.derc` later) will use to read/write pages.
+This ADR freezes the **Rust API surface** that every carrier
+(row_store, backup, `.derc` later) will use to read/write pages.
 
 ## 1. Context
 
@@ -253,44 +253,39 @@ BACE-envelope-payload MUST be v2; a page with no flags MAY be v1.
 There is no legitimate case for `encode_with_version(V2, PageFlags::empty())`
 other than testing, where callers can construct the bytes directly.
 
-## 6. Open design questions (owner review)
+## 6. Design decisions (resolved)
 
-1. **Should `Page::encode()` with `flags != empty()` ALWAYS produce
-   a v2 page, even when the carrier is about to write it into a
-   generation whose manifest still admits v1-only readers?** The
-   proposed answer is "yes" — the carrier is responsible for
+Resolved on 14 November 2026 by accepting the §6 proposed defaults.
+
+1. **v2 writes vs generation capability gating.** `Page::encode()`
+   with `flags != empty()` ALWAYS produces a v2 page. The carrier
+   (row_store in ADR 0065, backup in ADR 0067) is responsible for
    gating v2-flag writes behind the generation's capability set.
    `page.rs` does not know which generation it writes into.
-   Confirm.
-2. **New constructor name.** `Page::new_v2(..., flags)` vs
-   `Page::new_with_flags(..., flags)` vs replacing `new` with a
-   single constructor that takes `PageFlags` and keeps a
-   zero-flag convenience method. Picking any of the three is
-   fine; the first is the draft default.
-3. **`PageError::UnsupportedFlags` vs `UnsupportedFeatureFlag`.**
-   The draft keeps them distinct. Alternative: merge into one
-   variant and let the error message disambiguate. The current
-   name separation makes the error path explicit; confirm.
-4. **BACE-envelope-magic structural check in `Page::decode`.**
-   Draft runs the check when `payload_is_bace_envelope` is set.
-   Alternative: do no structural check at the page layer; let
-   the carrier discover the mismatch on
-   `bace::envelope::read_envelope`. The draft version catches the
-   error one layer earlier and makes `page_codec.rs` tests
-   simpler. Confirm.
-5. **New `page.rs` → `bace::envelope::ENVELOPE_MAGIC` dependency.**
-   Draft permits a single `use` of this constant. Alternative:
-   duplicate the four-byte literal in `page.rs`. The draft
-   centralises the constant. Confirm.
-6. **`new_v2` return type.** Draft is `Result<Self, PageError>`.
-   The error path covers only `InvalidPayloadLength`; if `flags`
-   are always valid (constructed through `PageFlags` methods),
-   the function may never error. Alternative: return `Self` and
-   validate separately.
-7. **Should the v2 writer refuse to emit a page whose
-   `payload_is_bace_envelope` is set but whose payload does not
-   start with `ENVELOPE_MAGIC`?** Draft: yes. Writer-side
-   fail-closed matches decoder-side fail-closed. Confirm.
+2. **Constructor name.** `Page::new_v2(page_id, lsn, kind, payload,
+   flags) -> Result<Self, PageError>`. The `new_v2` name makes the
+   version-selection surface explicit at every call site.
+3. **Error variants.** `UnsupportedFlags(u8)` and
+   `UnsupportedFeatureFlag(u8)` are kept distinct. The former
+   covers v1 pages with non-zero byte `[7]`; the latter covers v2
+   pages with reserved bits 1–7 of `feature_flags` set.
+4. **BACE envelope magic structural check.** `Page::decode` runs
+   the check when `payload_is_bace_envelope` is set: if the first
+   four payload bytes are not `ENVELOPE_MAGIC`, it fails closed
+   with `BaceEnvelopeMagicMismatch { kind }`. Catches the error
+   one layer earlier than the carrier's envelope decode.
+5. **`page.rs` → `bace::envelope::ENVELOPE_MAGIC` dependency.**
+   Permitted. `page.rs` adds `use crate::bace::envelope::ENVELOPE_MAGIC;`
+   for the structural check only. No other `bace` symbol crosses
+   into `page.rs`.
+6. **`new_v2` return type.** `Result<Self, PageError>`. Covers
+   `InvalidPayloadLength` and the writer-side magic check added
+   by decision 7.
+7. **Writer-side magic check.** The encoder refuses to emit a v2
+   page whose `payload_is_bace_envelope` is set but whose payload
+   does not start with `ENVELOPE_MAGIC`. Matches the decoder-side
+   fail-closed contract. The refusal returns
+   `BaceEnvelopeMagicMismatch { kind }`.
 
 ## 7. Impact on invariants
 
@@ -328,20 +323,14 @@ crate).
 - Modify the existing `PageError::UnsupportedFlags(u8)` variant;
   it remains for v1 pages with non-zero byte `[7]`.
 
-## 10. Acceptance evidence required before marking Accepted
+## 10. Acceptance evidence (satisfied)
 
 1. ADR 0063 accepted — **satisfied** (14 November 2026).
-2. Owner sign-off on §6 open design questions, especially Q2
-   (constructor name), Q4 (envelope magic structural check), and
-   Q6 (`new_v2` return type).
-3. Commitment to a mixed-content test matrix: the implementation
-   will include at minimum the 10 fail-closed / round-trip tests
-   enumerated in §4, all of which must pass before the commit
-   lands.
-4. Explicit statement that no production write path will emit a
-   v2 page until the carrier-integration ADR (0065) is also
-   accepted — this keeps BRPG v2 bytes out of real stores until
-   row_store is intentionally wired.
+2. Owner sign-off on §6 decisions — **satisfied** (14 November 2026).
+3. Commitment to the 10-item test matrix — **satisfied** by the
+   implementation commit landing alongside this acceptance.
+4. No production write path emits v2 pages until ADR 0065 is
+   accepted — **in force**: the implementation changes `page.rs`
+   only; no carrier calls `Page::new_v2` yet.
 
-Only then can this ADR move from **PROPOSED** to **ACCEPTED**, and
-only then can `page.rs` grow the v2 branches.
+`page.rs` may now grow the v2 branches.
