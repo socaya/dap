@@ -19,6 +19,7 @@
 
 pub mod codec;
 pub mod envelope;
+pub mod registry;
 
 pub use codec::{
     CapabilityFlags, Codec, CodecCapability, CodecId, DecodeError, Determinism, EncodeError,
@@ -28,3 +29,4 @@ pub use envelope::{
     EnvelopeHeader, ENVELOPE_HEADER_SIZE, ENVELOPE_MAGIC, ENVELOPE_MIN_SIZE, ENVELOPE_TRAILER_SIZE,
     ENVELOPE_VERSION,
 };
+pub use registry::{BuiltInRegistry, CodecRegistry, Negotiation};
