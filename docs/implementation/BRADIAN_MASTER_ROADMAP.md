@@ -23,7 +23,7 @@ tests does not accept a complete master requirement or permit skipping its exit 
 | 8 | Cluster-consistent recovery and hardening | Blocked on complete trust, storage and replication designs |
 | 9 | Qualification and external reproducibility | Not accepted; no production or cross-platform certification claimed |
 
-The [comprehensive gaps analysis](BRADIAN_COMPREHENSIVE_GAPS_ANALYSIS.md) cross-references the SRS v1.1 normative MUST clauses, BACE SRS v1.0 and the gap register; use it as the single-pane-of-glass view of release-blocking vs feature-shortfall vs scoped-deviation items.
+The [comprehensive gaps analysis](BRADIAN_COMPREHENSIVE_GAPS_ANALYSIS.md) cross-references the SRS v1.1 normative MUST clauses, BACE SRS v1.0 and the gap register; use it as the single-pane-of-glass view of release-blocking vs feature-shortfall vs scoped-deviation items. The [BACE ADR review package](BACE_ADR_REVIEW_PACKAGE.md) aggregates the four BACE prerequisite ADRs (0060, 0061, 0062, 0063) into one navigation aid for owner review, including all 28 open design questions.
 
 ## Gate 0 evidence baseline
 
