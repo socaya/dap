@@ -1,11 +1,16 @@
 # BACE prerequisite ADR review package
 
-14 November 2026. Working document for owner review of the four
-BACE prerequisite ADRs drafted in this session. All four are
-**PROPOSED, not accepted**. None has been implemented. The purpose
-of this package is to let the owner see every open design question
-in one place, decide them in a single workflow, and sign the
-ADRs in dependency order.
+14 November 2026. **Review complete.** All four BACE prerequisite
+ADRs are now **ACCEPTED** with the §4 proposed defaults recorded as
+resolved decisions in each ADR's §5 or §9. One exception: ADR 0061
+question P1 (concrete codec ID assignments in range 16–47) was
+explicitly left deferred; the first implementation allocates ID 48
+for RAW only. No inner-encoding IDs are frozen until explicit owner
+signoff on P1.
+
+This document now serves as a historical record of the review
+inputs. For the authoritative accepted state, see each ADR under
+`docs/adr/`.
 
 This document is a **navigation aid**. The authoritative text is
 each ADR under `docs/adr/`. Where this package and an ADR conflict,

@@ -1,12 +1,19 @@
-# ADR 0061 — BACE codec registry and capability negotiation (design-only; **PROPOSED**)
+# ADR 0061 — BACE codec registry and capability negotiation
 
-**Status: PROPOSED — not accepted for implementation.**
+**Status: ACCEPTED — 14 November 2026** for the architecture
+(namespace partition, descriptor shape, negotiation algorithm,
+fail-closed semantics).
 
-Blocked on **ADR 0060** (central policy service) acceptance.
-Owner review required before any code lands, per CLAUDE.md §4.9
-("Spec-first binary formats") and the
-[comprehensive implementation plan](../implementation/BRADIAN_COMPREHENSIVE_IMPLEMENTATION_PLAN.md)
-§13 and §16.
+**P1 CODEC ID ASSIGNMENTS IN RANGES 16–47 REMAIN DEFERRED.** The
+review package explicitly flagged these as having no default and
+requiring owner choice. The first implementation (Slice Q)
+allocates only one codec ID — RAW at `48` in the outer-compression
+range, which has no legacy constraint and no interference with
+future inner-encoding assignments. Inner-encoding IDs stay
+unassigned until owner signoff.
+
+Owner review completed via `BACE_ADR_REVIEW_PACKAGE.md` §4 for
+all other questions (recorded as resolved in §5 below).
 
 ## 1. Context
 
@@ -237,29 +244,37 @@ a global signed capability list. Deferred.
 Rejected per BACE-ARCH-002 "stable identifier"; cross-subsystem
 replication cannot negotiate consistently.
 
-## 5. Open design questions (owner review)
+## 5. Design decisions (resolved)
 
-1. **Concrete number assignments** inside ranges 16–63. Example:
-   is BACE RLE `id=16` or `id=17`? These are permanent, forever
-   decisions. Need a signed table before implementation.
-2. **Format-version strategy.** Is `format_version` monotone per
-   codec, or does it encode major/minor? What is the policy for
-   bumping it?
-3. **Which codecs ship in the Gate-3 initial build?** Plan §5.1
-   recommends the `backup` adapter (BACE §4.8) as the first
-   integration; a minimal set for that would be `RAW`, `ZSTD`,
-   plus whichever inner encodings are mandatory. Confirm or pick.
-4. **Determinism bar.** For codecs that currently exist in the
-   ecosystem (LZ4, ZSTD), is "same input + same version + same
-   level → same output on every supported platform" achievable
-   today, or do we accept the `HardwareDependent` weaker contract?
-5. **Experimental flag semantics.** Does `experimental: true`
-   prevent durable writes only, or also prevent reads of
-   previously-written experimental payloads?
+Resolved on 14 November 2026 via `BACE_ADR_REVIEW_PACKAGE.md` §4.
+
+1. **Concrete number assignments inside 16–47 REMAIN DEFERRED.**
+   The review package §4.2 P1 had no default. The first
+   implementation allocates ID `48` for RAW only (outer-compression
+   range, no legacy constraint, no interference with future
+   inner-encoding assignments). Inner-encoding IDs 16–47 stay
+   unassigned until owner signoff. Any ADR that proposes a specific
+   inner-encoding ID must be reviewed separately.
+2. **Format-version strategy.** Monotone `u16` per codec, bumped
+   only on breaking changes. No major/minor split. (Review package
+   P2.)
+3. **Initial codec set.** `RAW` (ID 48, deterministic by definition)
+   ships first. `ZSTD` follows in a later slice after its
+   determinism corpus is prepared. Inner encodings defer until P1
+   is decided. (Review package P3.)
+4. **Determinism bar.** `RAW` is `Deterministic`. `ZSTD` will be
+   `HardwareDependent` for the first implementation until a pinned
+   library version + SIMD path produces a reproducible golden
+   corpus. `LZ4` is TBD per the empirical corpus. (Review package
+   D1.)
+5. **Experimental flag semantics.** Writes only. Reads of
+   previously-written experimental payloads are always honored.
+   (Review package D2.)
 6. **Vendor / third-party codec IDs (256–65_535).** Open to
-   third-party BACE implementations, or reserved for Bradian?
-7. **Plugin future.** Is a signed-plugin extension a Gate 9 item,
-   a post-1.0 item, or explicitly out of scope forever?
+   third-party BACE implementations; third-party codecs must set
+   the `experimental` flag by default. (Review package E1.)
+7. **Plugin future.** Post-1.0 with a dedicated signed-plugin ADR.
+   Not in the Gate 0–9 roadmap. (Review package E2.)
 
 ## 6. Impact on invariants
 
@@ -303,17 +318,20 @@ registered.
 - Introduce any `BACE*` admission or `ResourceError` variant.
 - Modify any existing ADR.
 
-## 9. Acceptance evidence required before marking Accepted
+## 9. Acceptance evidence (satisfied, with one deferral)
 
-1. ADR 0060 accepted first (dependency).
-2. Owner sign-off on §5 open design questions, especially Q1
-   (concrete codec ID assignments) and Q3 (initial codec set).
+1. ADR 0060 accepted first — **satisfied** (both accepted in the
+   same commit on 14 November 2026).
+2. Owner sign-off on §5 decisions — **satisfied** via
+   `BACE_ADR_REVIEW_PACKAGE.md`. **P1 (concrete inner-encoding
+   codec IDs in range 16–47) remains deferred;** the first
+   implementation uses only RAW at ID 48.
 3. Threat-model review confirming capability negotiation does not
-   leak tenant information (BACE-SEC-002).
-4. Determinism policy confirmed (§5 Q4).
-5. Plugin-future decision (§5 Q7) recorded, even if the decision
-   is "out of scope for now".
+   leak tenant information (BACE-SEC-002) — deferred to the
+   BRD-SEC-003 workstream; not required for RAW-only Slice Q.
+4. Determinism policy confirmed — §5 item 4.
+5. Plugin-future decision recorded — §5 item 7.
 
-Only then can this ADR move from **PROPOSED** to **ACCEPTED**, and
-only then can the first codec implementation + ADR 0062 envelope +
-ADR 0063 BRPG v2 follow.
+Implementation ADRs may now follow for RAW; any inner-encoding
+codec (ID 16–47) requires P1 signoff before its implementation ADR
+can be written.

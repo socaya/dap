@@ -1,15 +1,17 @@
-# ADR 0062 — BACE compressed envelope v1 (design-only; **PROPOSED**)
+# ADR 0062 — BACE compressed envelope v1
 
-**Status: PROPOSED — not accepted for implementation.**
+**Status: ACCEPTED — 14 November 2026.**
 
-Blocked on **ADR 0060** (central policy service) and **ADR 0061**
-(codec registry) acceptance.
+Owner review completed via `BACE_ADR_REVIEW_PACKAGE.md` §4 with the
+proposed defaults recorded as resolved decisions (see §9 below).
+Every byte position below is now a forever invariant of the Bradian
+on-disk format.
 
-This ADR freezes a **durable on-disk byte layout**. Per CLAUDE.md §4.9
-("Spec-first binary formats") and the
-[comprehensive implementation plan](../implementation/BRADIAN_COMPREHENSIVE_IMPLEMENTATION_PLAN.md)
-§13, owner review is mandatory before implementation. Every byte
-position below becomes a forever invariant if accepted.
+**Host-local trust only.** The authenticated-envelope variant
+(magic `"BACA"`, reserved) is a separate future ADR tied to the
+BRD-SEC-003 workstream. v1 (CRC-only) must not be used for off-host
+transport or untrusted payloads without an outer authenticated
+wrapper.
 
 ## 1. Context
 
@@ -264,25 +266,31 @@ Bradian's row-store / WAL / backup do not need; the overhead is
 unjustified; and BACE §3.1 requires a central Bradian-owned codec
 registry which a foreign envelope cannot honor.
 
-## 9. Open design questions (owner review)
+## 9. Design decisions (resolved)
 
-1. **Should v1 reserve a magic for the authenticated variant up
-   front** (e.g. `"BACE"` for unauthenticated, `"BACA"` for
-   authenticated), or is a single `"BACE"` with a flag enough?
-2. **`encoded_length` sizing.** `u32` (4 GiB cap) vs `u64` (no
-   practical cap). Alternative C above picked u32; confirm.
-3. **`decoded_length` sizing.** Same question. Default u32.
-4. **`reserved_a` / `reserved_b` must-be-zero policy.** Strict
-   (any non-zero reserved byte fails) vs lenient (ignore). The
-   draft picks strict. Confirm.
-5. **Vendor bits in `flags[16..=31]`.** Permit when
-   `codec_id >= 256`, or forbid entirely in v1?
-6. **Empty payload.** v1 permits `encoded_length = 0` (minimum
-   36-byte envelope). Confirm or forbid.
-7. **Byte-order marker.** Should the magic double as an endianness
-   check (e.g. by making it an ASCII string that mis-interpreted
-   as LE/BE gives different results)? `"BACE"` is ASCII, so this is
-   automatic — confirm acceptable.
+Resolved on 14 November 2026 via `BACE_ADR_REVIEW_PACKAGE.md` §4.
+
+1. **Separate magic for the authenticated variant.** Reserve
+   `"BACA"` (ASCII `0x42 0x41 0x43 0x41`) for the future
+   authenticated-envelope variant. Unauthenticated v1 uses `"BACE"`.
+   Any ADR introducing the authenticated variant uses `"BACA"` and
+   cannot repurpose a flag bit under the already-published `"BACE"`
+   magic. (Review package A1.)
+2. **`encoded_length` sizing.** `u32` (4 GiB cap). Carriers may
+   impose smaller caps. (Review package P4.)
+3. **`decoded_length` sizing.** `u32`. (Review package P5.)
+4. **`reserved_a` / `reserved_b` must-be-zero.** Strict. Any
+   non-zero reserved byte fails closed with
+   `InvalidReservedByte`. (Review package X1.)
+5. **Vendor bits in `flags[16..=31]`.** Permitted only when
+   `codec_id >= 256`. Non-zero vendor bits with `codec_id < 256`
+   fail closed with `UnknownEnvelopeFlag`. (Review package A2.)
+6. **Empty payload.** Permitted. `encoded_length = 0` yields a
+   36-byte envelope. (Review package X2.)
+7. **Byte-order marker via ASCII magic.** Accepted. `"BACE"` as
+   ASCII doubles as an endianness check: mis-interpreted as a
+   different byte order it is not `0x42 0x41 0x43 0x45`. (Review
+   package X3.)
 
 ## 10. Impact on invariants
 
@@ -326,21 +334,23 @@ in via the BRD-SEC-003 workstream and need their own ADR entry.
 - Introduce any `BACE*` admission or `ResourceError` variant.
 - Modify any existing ADR.
 
-## 13. Acceptance evidence required before marking Accepted
+## 13. Acceptance evidence (satisfied, with ongoing obligations)
 
-1. **ADRs 0060 and 0061 accepted first** (dependency).
-2. Owner sign-off on §9 open design questions, especially Q1
-   (separate magic for authenticated variant) and Q2/Q3 (length
-   sizes).
-3. Golden-corpus commitment: once accepted, a static golden-file
-   corpus (small frames across every registered codec and every
-   `flags` setting) will be added to the test suite and verified
-   byte-identical on every supported target on every build.
-4. Explicit statement that no production write will use the v1
-   envelope until the authenticated variant ADR is also accepted
-   **or** until operators explicitly consent to host-local-only
-   storage of compressed payloads.
+1. **ADRs 0060 and 0061 accepted first** — **satisfied** (all four
+   accepted in the same review cycle on 14 November 2026).
+2. Owner sign-off on §9 decisions — **satisfied** via
+   `BACE_ADR_REVIEW_PACKAGE.md`.
+3. **Golden-corpus commitment — ongoing.** The first implementation
+   slice (Slice Q) ships a golden-vector test for the envelope
+   round-trip with the RAW codec; subsequent codecs add their own
+   golden entries as they are implemented. Every target in CI runs
+   the corpus byte-identically.
+4. **Host-local-only consent required.** Production use of v1
+   envelopes without an outer authenticated wrapper is restricted
+   to host-local trust boundaries until the `"BACA"` authenticated-
+   variant ADR is accepted. This is a deployment-posture decision
+   that the policy service (ADR 0060) MUST surface to operators
+   via an explicit configuration.
 
-Only then can this ADR move from **PROPOSED** to **ACCEPTED**, and
-only then can the first codec implementation + ADR 0063 BRPG v2 +
-subsequent carrier-embedding ADRs (`.derc`, BRWL, backup) follow.
+Implementation ADRs may now follow. The first codec implementation
+(RAW) and ADR 0063 BRPG v2 are both unblocked.

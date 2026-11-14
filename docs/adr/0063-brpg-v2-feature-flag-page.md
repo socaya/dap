@@ -1,17 +1,11 @@
-# ADR 0063 — BRPG v2 feature-flag page (design-only; **PROPOSED**)
+# ADR 0063 — BRPG v2 feature-flag page
 
-**Status: PROPOSED — not accepted for implementation.**
+**Status: ACCEPTED — 14 November 2026.**
 
-Blocked on **ADR 0060** (central policy service), **ADR 0061**
-(codec registry) and **ADR 0062** (compressed envelope v1)
-acceptance.
-
-This ADR freezes a **durable on-disk byte layout** for the row-page
-extension that carries BACE envelopes. Per CLAUDE.md §4.9
-("Spec-first binary formats") and the
-[comprehensive implementation plan](../implementation/BRADIAN_COMPREHENSIVE_IMPLEMENTATION_PLAN.md)
-§13, owner review is mandatory before implementation. Every byte
-position below becomes a forever invariant if accepted.
+Owner review completed via `BACE_ADR_REVIEW_PACKAGE.md` §4 with the
+proposed defaults recorded as resolved decisions (see §9 below).
+Every byte position below is now a forever invariant of the Bradian
+on-disk format.
 
 ## 1. Context
 
@@ -295,30 +289,35 @@ space usage for small rows. Rejected for v2.0: adds complexity
 to recovery and is not required by BACE-FR-ROW-001 for the first
 integration. A future v2.1 flag can add it.
 
-## 9. Open design questions (owner review)
+## 9. Design decisions (resolved)
 
-1. **Initial coverage.** Does v2.0 target only `PageKind::Data`,
-   or also `Index` and `FreeMap`? The draft permits any kind; is
-   that the owner's intent?
-2. **Reserved-bit strictness.** v2.0 fails closed on any reserved
-   bit. Keep strict, or let v2.0 readers ignore bits they do not
-   understand (making forward-compat v2.1 easier)?
-3. **Mixed-generation lifetime.** How long are v1 pages allowed
-   to coexist with v2 pages in a single directory? Forever, until
-   next checkpoint, or until operator opt-in migration?
-4. **Background recompression trigger.** BACE-FR-BKP-003 covers
-   recompression lifecycle. Is BRPG v1 → v2 rewriting a mandatory
-   part of that ADR, or an operator-driven opt-in?
-5. **B+tree v2.** Index pages (`PageKind::Index`) under BACE
-   encoding need their own key-encoding ADR. Do we draft that
-   immediately after 0063, or defer?
-6. **`.derc` coexistence.** `.derc` columnar segments are a
-   separate format (BACE §4.2). Should a single table's data pages
-   (BRPG v2) and its columnar projection (`.derc`) negotiate
-   policy together, or independently?
-7. **Downgrade mechanism.** §6.2 requires a formally verified
-   backup-and-restore cycle. Is that acceptable, or does owner
-   want an explicit page-by-page downgrade decoder?
+Resolved on 14 November 2026 via `BACE_ADR_REVIEW_PACKAGE.md` §4.
+
+1. **Initial coverage.** `PageKind::Data`, `Index` and `FreeMap`.
+   `Metadata` pages (checkpoint metadata page, row 0) excluded —
+   they carry fixed-size authoritative metadata and gain nothing
+   from compression. (Review package S6.)
+2. **Reserved-bit strictness.** Strict. Any reserved bit set → fail
+   closed with `UnsupportedFlags`. (Review package X4.)
+3. **Mixed-generation lifetime.** Forever. The checkpoint manifest
+   decides which generation is authoritative; v1 and v2 pages may
+   coexist without a deadline. (Review package L3.)
+4. **Background recompression trigger.** Operator-driven opt-in.
+   The future BACE-FR-BKP-003 recompression ADR will specify the
+   job interface; auto-rewriting v1 → v2 is not mandatory. (Review
+   package L4.)
+5. **B+tree v2.** Deferred. Index-page key encoding (prefix/delta)
+   needs its own ADR after the Slice Q implementation proves out
+   the page-level mechanism for `PageKind::Data`. (Review package
+   P6.)
+6. **`.derc` coexistence.** Independently. BRPG v2 and `.derc`
+   negotiate policy separately through the policy service
+   (ADR 0060). A single table may have v1 BRPG pages, v2 BRPG
+   pages, and a `.derc` projection in three different compression
+   postures. (Review package S7.)
+7. **Downgrade mechanism.** Formally verified backup-and-restore
+   cycle only (per BACE-FMT-004). No page-by-page downgrade
+   decoder in v2.0. (Review package A3.)
 
 ## 10. Impact on invariants
 
@@ -363,24 +362,24 @@ the ADR 0061 codec registry registers for the BACE envelope.
 - Introduce any `BACE*` admission or `ResourceError` variant.
 - Modify any existing ADR.
 
-## 13. Acceptance evidence required before marking Accepted
+## 13. Acceptance evidence (satisfied, with ongoing obligations)
 
-1. **ADRs 0060, 0061, 0062 accepted first** (dependencies).
-2. Owner sign-off on §9 open design questions, especially Q1
-   (initial coverage), Q3 (coexistence lifetime) and Q5 (B+tree
-   v2 draft ordering).
-3. Golden-corpus commitment: once accepted, a static corpus of
-   BRPG v2 pages (both plain-payload and BACE-envelope-payload
-   variants, across every PageKind) added to the test suite and
-   verified byte-identical on every supported target on every
-   build.
-4. Mixed-generation regression plan: every existing row-store /
-   btree / backup / recovery test must pass with both v1-only
-   and mixed v1+v2 directories.
-5. Explicit statement that no production write will emit v2
-   pages until implementation ADRs for the page, row-store,
-   B+tree and backup modules are also accepted.
+1. **ADRs 0060, 0061, 0062 accepted first** — **satisfied** (all
+   four accepted in the same cycle on 14 November 2026).
+2. Owner sign-off on §9 decisions — **satisfied** via
+   `BACE_ADR_REVIEW_PACKAGE.md`.
+3. **Golden-corpus commitment — ongoing.** Added incrementally as
+   each implementation slice lands. Slice Q ships the envelope
+   corpus for RAW; subsequent slices add BRPG v2 page corpora.
+4. **Mixed-generation regression plan — ongoing.** The initial
+   Slice Q implements the `bace` module in isolation without
+   touching `row_store.rs`. BRPG v2 integration into `row_store`
+   is a later slice and will carry its own regression checklist.
+5. **No production v2 writes until carrier integration ADRs are
+   accepted.** Slice Q's `bace` module stands alone and does NOT
+   emit v2 pages anywhere; the first production v2 writer requires
+   a separate implementation ADR for `page.rs` + `row_store.rs`.
 
-Only then can this ADR move from **PROPOSED** to **ACCEPTED**, and
-only then can `page.rs` grow a v2 decode branch and `row_store.rs`
-grow a mixed-generation reader.
+Implementation ADRs may now follow for the module-level work. No
+on-disk BRPG v2 page may be written until a sibling implementation
+ADR explicitly covers that carrier.

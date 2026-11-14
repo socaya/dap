@@ -1,14 +1,12 @@
-# ADR 0060 — BACE central policy service (design-only; **PROPOSED**)
+# ADR 0060 — BACE central policy service
 
-**Status: PROPOSED — not accepted for implementation.**
+**Status: ACCEPTED — 14 November 2026.**
 
-Owner review required before any code lands, per CLAUDE.md §4.9
-("Spec-first binary formats") and the
-[comprehensive implementation plan](../implementation/BRADIAN_COMPREHENSIVE_IMPLEMENTATION_PLAN.md)
-§13 and §16. This ADR specifies a type model and resolution
-contract only; no persistent format, wire protocol, codec identifier
-or envelope byte layout is frozen here. Those belong in separate
-dedicated ADRs after this one is accepted.
+Owner review completed via `BACE_ADR_REVIEW_PACKAGE.md` with the
+§4 proposed defaults recorded as resolved decisions (see §5.1 below).
+This ADR specifies a type model and resolution contract only; no
+persistent format, wire protocol, codec identifier or envelope byte
+layout is frozen here.
 
 ## 1. Context
 
@@ -234,32 +232,31 @@ requires a central versioned service and because without one, cross-
 subsystem invariants (encryption-after-compression, tenant isolation)
 cannot be enforced consistently.
 
-## 5. Open design questions (owner review)
+## 5. Design decisions (resolved)
 
-These are the decisions this ADR deliberately does **not** take.
-Each needs an answer before implementation begins.
+Resolved on 14 November 2026 via `BACE_ADR_REVIEW_PACKAGE.md` §4.
 
-1. **Scope-chain cardinality.** The proposed seven levels match
-   BACE §8. Is a per-tenant level required between workload and
-   database? Would eight levels be too many for operators to reason
-   about?
-2. **Named workload profiles** (`FAST` / `BALANCED` / `MAX` / `RAW`
-   as in §3.2) — are these a fixed enum set, or should operators
-   be able to define their own named profiles?
-3. **Persistence surface.** Is the policy tree persisted in the
-   catalog alongside DDL events (reusing `PersistentCatalog`), or
-   in a sibling policy store with its own WAL?
-4. **Compatibility with existing `.derc` ZSTD-3 hardcode.** Should
-   the first integration migrate `.derc` to policy-governed
-   compression, or leave it in place and apply the policy service
-   to new subsystems only?
-5. **First subsystem to integrate.** Plan §12.1 recommends `backup`
-   (cold path, reversible, ZSTD already proven). Confirm or pick
-   another.
-6. **SQL surface.** Defer `ALTER TABLE ... SET COMPRESSION` to a
-   later ADR, or scope it now?
-7. **Audit channel.** Use a new structured log, extend `tracing`,
-   or wait for the BRD-SEC-005 audit workstream?
+1. **Scope-chain cardinality.** Seven levels. No per-tenant level
+   added. (Review package S1.)
+2. **Named workload profiles.** Fixed enum: `FAST`, `BALANCED`,
+   `MAX`, `RAW`. Operator-definable profiles are deferred to a
+   future ADR. (Review package S2.)
+3. **Persistence surface.** Levels 2–5 (database/schema/table/
+   column) reuse `PersistentCatalog` — a dedicated sub-ADR will
+   specify the DDL event shape for policy entries. Levels 0 and 6
+   remain process-local. Level 1 (workload) ships in the build.
+   (Review package S3.)
+4. **Compatibility with existing `.derc` ZSTD-3 hardcode.** Leave
+   `.derc` in place; apply the policy service to new subsystems
+   only. `.derc` migration to policy-governed compression is a
+   separate future ADR. (Review package S4.)
+5. **First subsystem to integrate.** `backup` (plan §12.1
+   recommendation). (Review package S5.)
+6. **SQL surface** (`ALTER TABLE ... SET COMPRESSION`,
+   `OPTIMIZE TABLE ... RECOMPRESS`). Deferred. (Review package L1.)
+7. **Audit channel.** Extend `tracing` for the first implementation;
+   migrate to the BRD-SEC-005 audit channel when that workstream
+   lands. (Review package L2.)
 
 ## 6. Impact on invariants
 
@@ -296,13 +293,19 @@ proposed ADRs are **0061 (codec registry capability negotiation)**,
 **0062 (compressed envelope byte layout)**, and **0063 (BRPG v2
 feature-flag page)**, each of which must freeze a specific format.
 
-## 9. Acceptance evidence required before marking Accepted
+## 9. Acceptance evidence (satisfied)
 
-1. Owner sign-off on §5 open design questions.
-2. Workload-profile set finalized.
-3. Scope-chain cardinality confirmed.
-4. First-subsystem choice confirmed.
-5. Audit channel decision.
+1. Owner sign-off on §5 design decisions — **satisfied** via
+   `BACE_ADR_REVIEW_PACKAGE.md` approval 14 November 2026.
+2. Workload-profile set finalized — four fixed profiles
+   (§5 item 2).
+3. Scope-chain cardinality confirmed — seven levels (§5 item 1).
+4. First-subsystem choice confirmed — `backup` (§5 item 5).
+5. Audit channel decision — `tracing` for first implementation
+   (§5 item 7).
 
-Only then can this ADR move from **PROPOSED** to **ACCEPTED**, and
-only then can an implementation ADR follow.
+Implementation ADRs may now follow. The first-tier implementation
+ADR for this policy service module is deferred; the initial
+implementation slice (Slice Q) stays narrow and implements only
+the API surface and an in-memory policy store, without the
+`PersistentCatalog` DDL event integration from §5 item 3.
